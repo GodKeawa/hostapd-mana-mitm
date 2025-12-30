@@ -24,12 +24,14 @@ source=(
   hostapd-mana@.service
   hostapd-mana.tmpfiles
   hostapd-fhs-config.patch
+  hostapd-mana-peap-mitm.patch
 )
 sha256sums=('SKIP'
             '742e1c17fce996ac250333619a3392d70dd37aa23341f5e0ccaaafff52250ec3'
             'b2bdd3e4a9fb07b43c927ab078a1d144f3b1ec24ba8e3a6c6a24c6ef82a9d14a'
             '4e299ce300637f09467092ff4b9952db4be7db55ed99035b40a39c7340eda44d'
-            '5bdbd0b89475749629bad262752ac2427b658c8f42338674671c659c32314c19')
+            '5bdbd0b89475749629bad262752ac2427b658c8f42338674671c659c32314c19'
+            'SKIP')
 
 
 pkgver() {
@@ -39,6 +41,7 @@ pkgver() {
 
 prepare() {
   patch -Np1 -d ${pkgname%-git} -i ../hostapd-fhs-config.patch
+  patch -Np1 -d ${pkgname%-git} -i ../hostapd-mana-peap-mitm.patch
 }
 
 build() {
