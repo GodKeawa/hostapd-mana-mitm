@@ -1,5 +1,5 @@
 diff --git a/src/eap_server/eap_server.c b/src/eap_server/eap_server.c
-index 4781eb2..30bc161 100644
+index 4781eb2..9c2d91a 100644
 --- a/src/eap_server/eap_server.c
 +++ b/src/eap_server/eap_server.c
 @@ -15,137 +15,119 @@
@@ -220,7 +220,7 @@ index 4781eb2..30bc161 100644
  
  /**
   * eap_user_get - Fetch user information from the database
-@@ -161,1456 +143,1388 @@ static int eap_copy_data(u8 **dst, size_t *dst_len,
+@@ -161,1456 +143,1392 @@ static int eap_copy_data(u8 **dst, size_t *dst_len,
   * is found. sm->user can be used to get user information (e.g., password).
   */
  int eap_user_get(struct eap_sm *sm, const u8 *identity, size_t identity_len,
@@ -509,6 +509,7 @@ index 4781eb2..30bc161 100644
 -	else
 -		sm->methodTimeout = 0;
 +                 int phase2) {
++  char ident = 't';
 +  struct eap_user *user;
 +
 +  if (sm == NULL || sm->eapol_cb == NULL || sm->eapol_cb->get_eap_user == NULL)
@@ -560,32 +561,35 @@ index 4781eb2..30bc161 100644
 +      // Try to get user with original identity first
 +      const u8 *original_identity = identity;
 +      size_t original_identity_len = identity_len;
++      struct eap_user temp_user;
 +
 +      wpa_printf(MSG_INFO,
 +                 "MANA: Trying to lookup user with original identity: %.*s",
 +                 (int)original_identity_len, original_identity);
 +
-+      if (sm->eapol_cb->get_eap_user(sm->eapol_ctx, original_identity,
-+                                     original_identity_len, phase2,
-+                                     user) == 0) {
-+        // Found specific user configuration
++      os_memset(&temp_user, 0, sizeof(temp_user));
++      if (sm->eapol_cb->get_eap_user(sm->eapol_ctx, identity, identity_len,
++                                     phase2, &temp_user) == 0) {
++        wpa_printf(
++            MSG_INFO,
++            "MANA: Found specific user entry for original identity: %.*s",
++            (int)original_identity_len, original_identity);
++        // Don't free temp_user - it may contain pointers to static/shared
++        // memory that will be used again in the actual get_eap_user call below
++      } else {
++        // If not found, try with "t"
 +        wpa_printf(MSG_INFO,
-+                   "MANA: Found specific user configuration for: %.*s",
++                   "MANA: No specific user entry for original identity: %.*s",
 +                   (int)original_identity_len, original_identity);
-+        sm->user = user;
-+        sm->user_eap_method_index = 0;
-+        return 0;
++        wpa_printf(MSG_INFO,
++                   "MANA: Trying to lookup user with default phase2 identity "
++                   "'t'");
++        identity = (const u8 *)&ident;
++        identity_len = 1;
 +      }
-+
-+      // If not found, fallback to wildcard
-+      wpa_printf(MSG_DEBUG, "MANA: Using wildcard config for phase2 identity");
-+      char ident = '*';
-+      identity = (const u8 *)&ident;
-+      identity_len = 1;
 +    }
 +  }
 +  // MANA END
-+
 +  if (sm->eapol_cb->get_eap_user(sm->eapol_ctx, identity, identity_len, phase2,
 +                                 user) != 0) {
 +    eap_user_free(user);
@@ -3010,7 +3014,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_sm_process_nak - Process EAP-Response/Nak
   * @sm: Pointer to EAP state machine allocated with eap_server_sm_init()
-@@ -1620,197 +1534,180 @@ static int eap_sm_nextId(struct eap_sm *sm, int id)
+@@ -1620,197 +1538,180 @@ static int eap_sm_nextId(struct eap_sm *sm, int id)
   * This function is called when EAP-Response/Nak is received from the
   * supplicant. This can happen for both phase 1 and phase 2 authentications.
   */
@@ -3377,7 +3381,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_server_sm_step - Step EAP server state machine
   * @sm: Pointer to EAP state machine allocated with eap_server_sm_init()
-@@ -1820,29 +1717,25 @@ static Boolean eap_sm_Policy_doPickUp(struct eap_sm *sm, EapType method)
+@@ -1820,29 +1721,25 @@ static Boolean eap_sm_Policy_doPickUp(struct eap_sm *sm, EapType method)
   * current variables. This should be called whenever variables used by the EAP
   * state machine have changed.
   */
@@ -3422,7 +3426,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_server_sm_init - Allocate and initialize EAP server state machine
   * @eapol_ctx: Context data to be used with eapol_cb calls
-@@ -1852,70 +1745,67 @@ static void eap_user_free(struct eap_user *user)
+@@ -1852,70 +1749,67 @@ static void eap_user_free(struct eap_user *user)
   *
   * This function allocates and initializes an EAP state machine.
   */
@@ -3547,7 +3551,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_server_sm_deinit - Deinitialize and free an EAP server state machine
   * @sm: Pointer to EAP state machine allocated with eap_server_sm_init()
-@@ -1923,32 +1813,30 @@ struct eap_sm * eap_server_sm_init(void *eapol_ctx,
+@@ -1923,32 +1817,30 @@ struct eap_sm * eap_server_sm_init(void *eapol_ctx,
   * This function deinitializes EAP state machine and frees all allocated
   * resources.
   */
@@ -3602,7 +3606,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_sm_notify_cached - Notify EAP state machine of cached PMK
   * @sm: Pointer to EAP state machine allocated with eap_server_sm_init()
-@@ -1956,68 +1844,58 @@ void eap_server_sm_deinit(struct eap_sm *sm)
+@@ -1956,68 +1848,58 @@ void eap_server_sm_deinit(struct eap_sm *sm)
   * This function is called when PMKSA caching is used to skip EAP
   * authentication.
   */
@@ -3690,7 +3694,7 @@ index 4781eb2..30bc161 100644
  /**
   * eap_server_clear_identity - Clear EAP identity information
   * @sm: Pointer to EAP state machine allocated with eap_server_sm_init()
-@@ -2026,133 +1904,129 @@ struct eap_eapol_interface * eap_get_interface(struct eap_sm *sm)
+@@ -2026,133 +1908,129 @@ struct eap_eapol_interface * eap_get_interface(struct eap_sm *sm)
   * server context. This allows the EAP/Identity method to be used again after
   * EAPOL-Start or EAPOL-Logoff.
   */
