@@ -13,4 +13,4 @@ wpa-sycophant-mitm：https://github.com/GodKeawa/wpa_sycophant-mitm
 提供了MitM功能，通过读取并转发sycophant获取的MSCHAPV2的peer_challenge的Response实现，过去的sycophant不会进行转发，而是直接拒绝连接，当前版本将支持客户端完全连接到Rogue AP，但需要提供dhcp和网络服务
 
 
-同时提供了更好的eap_server的eap_user解析功能，现在能够查询条目，优先使用有配置密码的条目，然后使用通用条目，使得直接使用hostapd-mana时支持进行多用户测试，成功进入EAPOL，过去的eap_server实现本质上只支持一个通用条目
+同时提供了更好的eap_server的eap_user解析功能，现在能够查询条目，优先使用有配置密码的条目，然后使用通用条目，使得直接使用hostapd-mana时支持进行多用户测试，过去的eap_server实现本质上只支持一个通用条目，故所有用户共享一个密码
